@@ -7,4 +7,4 @@ import os
 
 
 def index(request):
-    return HttpResponse("<h1>Hello World</h1>")
+    return render(request, 'core/index.html')
