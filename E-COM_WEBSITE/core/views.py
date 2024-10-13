@@ -12,3 +12,44 @@ def index(request):
 def about_us(request):
     return render(request, "core/about_us.html")
 
+@login_required
+def customer_dashboard(request):
+    orders_list = CartOrder.objects.filter(user=request.user).order_by("-id")
+    address = Address.objects.filter(user=request.user)
+
+
+    orders = CartOrder.objects.annotate(month=ExtractMonth("order_date")).values("month").annotate(count=Count("id")).values("month", "count")
+    month = []
+    total_orders = []
+
+    for i in orders:
+        month.append(calendar.month_name[i["month"]])
+        total_orders.append(i["count"])
+
+    if request.method == "POST":
+        address = request.POST.get("address")
+        mobile = request.POST.get("mobile")
+
+        new_address = Address.objects.create(
+            user=request.user,
+            address=address,
+            mobile=mobile,
+        )
+        messages.success(request, "Address Added Successfully.")
+        return redirect("core:dashboard")
+    else:
+        print("Error")
+    
+    user_profile = Profile.objects.get(user=request.user)
+    print("user profile is: #########################",  user_profile)
+
+    context = {
+        "user_profile": user_profile,
+        "orders": orders,
+        "orders_list": orders_list,
+        "address": address,
+        "month": month,
+        "total_orders": total_orders,
+    }
+    return render(request, 'core/dashboard.html', context)
+
