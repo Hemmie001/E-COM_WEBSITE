@@ -12,6 +12,18 @@ class User(AbstractUser):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ['username']
 
+    # Override the groups and user_permissions fields to avoid conflicts
+    groups = models.ManyToManyField(
+        'auth.Group',
+        related_name='auth_user_groups',  # Unique name
+        blank=True,
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        related_name='auth_user_permissions',  # Unique name
+        blank=True,
+    )
+
     def __str__(self):
         return self.username
 
