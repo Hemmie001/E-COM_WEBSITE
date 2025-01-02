@@ -40,6 +40,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Third Party
+    'taggit',
+    'crispy_bootstrap5',
+    'django_ckeditor_5',
+    'paypal.standard.ipn',
+
     #Custom Apps
     'core',
     'userauths',
