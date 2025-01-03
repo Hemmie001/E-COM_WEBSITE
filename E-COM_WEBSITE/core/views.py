@@ -94,7 +94,7 @@ def add_to_cart(request):
 
     else:
         request.session['cart_data_obj'] = cart_product
-    return JsonResponse({"data":request.session['cart_data_obj'], 'totalcartitems': len(request.session['cart_data_obj'])}):wq
+    return JsonResponse({"data":request.session['cart_data_obj'], 'totalcartitems': len(request.session['cart_data_obj'])})
 
 def cart_view(request):
     cart_total_amount = 0
