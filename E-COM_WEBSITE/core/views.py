@@ -69,3 +69,317 @@ def customer_dashboard(request):
     }
     return render(request, 'core/dashboard.html', context)
 
+def add_to_cart(request):
+    cart_product = {}
+
+    cart_product[str(request.GET['id'])] = {
+        'title': request.GET['title'],
+        'qty': request.GET['qty'],
+        'price': request.GET['price'],
+        'image': request.GET['image'],
+        'pid': request.GET['pid'],
+    }
+
+    if 'cart_data_obj' in request.session:
+        if str(request.GET['id']) in request.session['cart_data_obj']:
+
+            cart_data = request.session['cart_data_obj']
+            cart_data[str(request.GET['id'])]['qty'] = int(cart_product[str(request.GET['id'])]['qty'])
+            cart_data.update(cart_data)
+            request.session['cart_data_obj'] = cart_data
+        else:
+            cart_data = request.session['cart_data_obj']
+            cart_data.update(cart_product)
+            request.session['cart_data_obj'] = cart_data
+
+    else:
+        request.session['cart_data_obj'] = cart_product
+    return JsonResponse({"data":request.session['cart_data_obj'], 'totalcartitems': len(request.session['cart_data_obj'])}):wq
+
+def cart_view(request):
+    cart_total_amount = 0
+    if 'cart_data_obj' in request.session:
+        for p_id, item in request.session['cart_data_obj'].items():
+            cart_total_amount += int(item['qty']) * float(item['price'])
+        return render(request, "core/cart.html", {"cart_data":request.session['cart_data_obj'], 'totalcartitems': len(request.session['cart_data_obj']), 'cart_total_amount':cart_total_amount})
+    else:
+        messages.warning(request, "Your cart is empty")
+        return redirect("core:index")
+
+
+def delete_item_from_cart(request):
+    product_id = str(request.GET['id'])
+    if 'cart_data_obj' in request.session:
+        if product_id in request.session['cart_data_obj']:
+            cart_data = request.session['cart_data_obj']
+            del request.session['cart_data_obj'][product_id]
+            request.session['cart_data_obj'] = cart_data
+    
+    cart_total_amount = 0
+    if 'cart_data_obj' in request.session:
+        for p_id, item in request.session['cart_data_obj'].items():
+            cart_total_amount += int(item['qty']) * float(item['price'])
+
+    context = render_to_string("core/async/cart-list.html", {"cart_data":request.session['cart_data_obj'], 'totalcartitems': len(request.session['cart_data_obj']), 'cart_total_amount':cart_total_amount})
+    return JsonResponse({"data": context, 'totalcartitems': len(request.session['cart_data_obj'])})
+
+
+def update_cart(request):
+    product_id = str(request.GET['id'])
+    product_qty = request.GET['qty']
+
+    if 'cart_data_obj' in request.session:
+        if product_id in request.session['cart_data_obj']:
+            cart_data = request.session['cart_data_obj']
+            cart_data[str(request.GET['id'])]['qty'] = product_qty
+            request.session['cart_data_obj'] = cart_data
+    
+    cart_total_amount = 0
+    if 'cart_data_obj' in request.session:
+        for p_id, item in request.session['cart_data_obj'].items():
+            cart_total_amount += int(item['qty']) * float(item['price'])
+
+    context = render_to_string("core/async/cart-list.html", {"cart_data":request.session['cart_data_obj'], 'totalcartitems': len(request.session['cart_data_obj']), 'cart_total_amount':cart_total_amount})
+    return JsonResponse({"data": context, 'totalcartitems': len(request.session['cart_data_obj'])})
+
+
+@login_required
+def checkout_view(request):
+    cart_total_amount = 0
+    total_amount = 0
+
+    # Checking if cart_data_obj session exists
+    if 'cart_data_obj' in request.session:
+
+        # Getting total amount for Paypal Amount
+        for p_id, item in request.session['cart_data_obj'].items():
+            total_amount += int(item['qty']) * float(item['price'])
+
+        # Create ORder Object
+        order = CartOrder.objects.create(
+            user=request.user,
+            price=total_amount
+        )
+
+        # Getting total amount for The Cart
+        for p_id, item in request.session['cart_data_obj'].items():
+            cart_total_amount += int(item['qty']) * float(item['price'])
+
+            cart_order_products = CartOrderProducts.objects.create(
+                order=order,
+                invoice_no="INVOICE_NO-" + str(order.id), # INVOICE_NO-5,
+                item=item['title'],
+                image=item['image'],
+                qty=item['qty'],
+                price=item['price'],
+                total=float(item['qty']) * float(item['price'])
+            )
+
+        host = request.get_host()
+        paypal_dict = {
+            'business': settings.PAYPAL_RECEIVER_EMAIL,
+            'amount': cart_total_amount,
+            'item_name': "Order-Item-No-" + str(order.id),
+            'invoice': "INVOICE_NO-" + str(order.id),
+            'currency_code': "USD",
+            'notify_url': 'http://{}{}'.format(host, reverse("core:paypal-ipn")),
+            'return_url': 'http://{}{}'.format(host, reverse("core:payment-completed")),
+            'cancel_url': 'http://{}{}'.format(host, reverse("core:payment-failed")),
+        }
+
+        paypal_payment_button = PayPalPaymentsForm(initial=paypal_dict)
+
+        # cart_total_amount = 0
+        # if 'cart_data_obj' in request.session:
+        #     for p_id, item in request.session['cart_data_obj'].items():
+        #         cart_total_amount += int(item['qty']) * float(item['price'])
+
+        try:
+            active_address = Address.objects.get(user=request.user, status=True)
+        except:
+            messages.warning(request, "There are multiple addresses, only one should be activated.")
+            active_address = None
+
+        return render(request, "core/checkout.html", {"cart_data":request.session['cart_data_obj'], 'totalcartitems': len(request.session['cart_data_obj']), 'cart_total_amount':cart_total_amount, 'paypal_payment_button':paypal_payment_button, "active_address":active_address})
+
+
+@login_required
+def payment_completed_view(request):
+    cart_total_amount = 0
+    if 'cart_data_obj' in request.session:
+        for p_id, item in request.session['cart_data_obj'].items():
+            cart_total_amount += int(item['qty']) * float(item['price'])
+    return render(request, 'core/payment-completed.html',  {'cart_data':request.session['cart_data_obj'],'totalcartitems':len(request.session['cart_data_obj']),'cart_total_amount':cart_total_amount})
+
+@login_required
+def payment_failed_view(request):
+    return render(request, 'core/payment-failed.html')
+
+
+@login_required
+def customer_dashboard(request):
+    orders_list = CartOrder.objects.filter(user=request.user).order_by("-id")
+    address = Address.objects.filter(user=request.user)
+
+
+    orders = CartOrder.objects.annotate(month=ExtractMonth("order_date")).values("month").annotate(count=Count("id")).values("month", "count")
+    month = []
+    total_orders = []
+
+    for i in orders:
+        month.append(calendar.month_name[i["month"]])
+        total_orders.append(i["count"])
+
+    if request.method == "POST":
+        address = request.POST.get("address")
+        mobile = request.POST.get("mobile")
+
+        new_address = Address.objects.create(
+            user=request.user,
+            address=address,
+            mobile=mobile,
+        )
+        messages.success(request, "Address Added Successfully.")
+        return redirect("core:dashboard")
+    else:
+        print("Error")
+    
+    user_profile = Profile.objects.get(user=request.user)
+    print("user profile is: #########################",  user_profile)
+
+    context = {
+        "user_profile": user_profile,
+        "orders": orders,
+        "orders_list": orders_list,
+        "address": address,
+        "month": month,
+        "total_orders": total_orders,
+    }
+    return render(request, 'core/dashboard.html', context)
+
+def order_detail(request, id):
+    order = CartOrder.objects.get(user=request.user, id=id)
+    order_items = CartOrderProducts.objects.filter(order=order)
+
+    
+    context = {
+        "order_items": order_items,
+    }
+    return render(request, 'core/order-detail.html', context)
+
+
+def make_address_default(request):
+    id = request.GET['id']
+    Address.objects.update(status=False)
+    Address.objects.filter(id=id).update(status=True)
+    return JsonResponse({"boolean": True})
+
+@login_required
+def wishlist_view(request):
+    wishlist = wishlist_model.objects.all()
+    context = {
+        "w":wishlist
+    }
+    return render(request, "core/wishlist.html", context)
+
+
+    # w
+
+def add_to_wishlist(request):
+    product_id = request.GET['id']
+    product = Product.objects.get(id=product_id)
+    print("product id isssssssssssss:" + product_id)
+
+    context = {}
+
+    wishlist_count = wishlist_model.objects.filter(product=product, user=request.user).count()
+    print(wishlist_count)
+
+    if wishlist_count > 0:
+        context = {
+            "bool": True
+        }
+    else:
+        new_wishlist = wishlist_model.objects.create(
+            user=request.user,
+            product=product,
+        )
+        context = {
+            "bool": True
+        }
+
+    return JsonResponse(context)
+
+
+# def remove_wishlist(request):
+#     pid = request.GET['id']
+#     wishlist = wishlist_model.objects.filter(user=request.user).values()
+
+#     product = wishlist_model.objects.get(id=pid)
+#     h = product.delete()
+
+#     context = {
+#         "bool": True,
+#         "wishlist":wishlist
+#     }
+#     t = render_to_string("core/async/wishlist-list.html", context)
+#     return JsonResponse({"data": t, "w":wishlist})
+
+def remove_wishlist(request):
+    pid = request.GET['id']
+    wishlist = wishlist_model.objects.filter(user=request.user)
+    wishlist_d = wishlist_model.objects.get(id=pid)
+    delete_product = wishlist_d.delete()
+    
+    context = {
+        "bool":True,
+        "w":wishlist
+    }
+    wishlist_json = serializers.serialize('json', wishlist)
+    t = render_to_string('core/async/wishlist-list.html', context)
+    return JsonResponse({'data':t,'w':wishlist_json})
+
+
+
+
+
+# Other Pages 
+def contact(request):
+    return render(request, "core/contact.html")
+
+
+def ajax_contact_form(request):
+    full_name = request.GET['full_name']
+    email = request.GET['email']
+    phone = request.GET['phone']
+    subject = request.GET['subject']
+    message = request.GET['message']
+
+    contact = ContactUs.objects.create(
+        full_name=full_name,
+        email=email,
+        phone=phone,
+        subject=subject,
+        message=message,
+    )
+
+    data = {
+        "bool": True,
+        "message": "Message Sent Successfully"
+    }
+
+    return JsonResponse({"data":data})
+
+
+def about_us(request):
+    return render(request, "core/about_us.html")
+
+
+def purchase_guide(request):
+    return render(request, "core/purchase_guide.html")
+
+def privacy_policy(request):
+    return render(request, "core/privacy_policy.html")
+
+def terms_of_service(request):
+    return render(request, "core/terms_of_service.html")
