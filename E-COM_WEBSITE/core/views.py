@@ -123,6 +123,25 @@ def ajax_add_review(request, pid):
        }
     )
 
+def category_list_view(request):
+    categories = Category.objects.all()
+
+    context = {
+        "categories":categories
+    }
+    return render(request, 'core/category-list.html', context)
+
+def category_product_list_view(request, cid):
+
+    category = Category.objects.get(cid=cid) # food, Cosmetics
+    products = Product.objects.filter(product_status="published", category=category)
+
+    context = {
+        "category":category,
+        "products":products,
+    }
+    return render(request, "core/category-product-list.html", context)
+
 def cart_view(request):
     cart_total_amount = 0
     if 'cart_data_obj' in request.session:
