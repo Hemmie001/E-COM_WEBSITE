@@ -96,6 +96,33 @@ def add_to_cart(request):
         request.session['cart_data_obj'] = cart_product
     return JsonResponse({"data":request.session['cart_data_obj'], 'totalcartitems': len(request.session['cart_data_obj'])})
 
+def ajax_add_review(request, pid):
+    product = Product.objects.get(pk=pid)
+    user = request.user 
+
+    review = ProductReview.objects.create(
+        user=user,
+        product=product,
+        review = request.POST['review'],
+        rating = request.POST['rating'],
+    )
+
+    context = {
+        'user': user.username,
+        'review': request.POST['review'],
+        'rating': request.POST['rating'],
+    }
+
+    average_reviews = ProductReview.objects.filter(product=product).aggregate(rating=Avg("rating"))
+
+    return JsonResponse(
+       {
+         'bool': True,
+        'context': context,
+        'average_reviews': average_reviews
+       }
+    )
+
 def cart_view(request):
     cart_total_amount = 0
     if 'cart_data_obj' in request.session:
