@@ -470,6 +470,13 @@ def vendor_detail_view(request, vid):
     }
     return render(request, "core/vendor-detail.html", context)
 
+def vendor_list_view(request):
+    vendors = Vendor.objects.all()
+    context = {
+        "vendors": vendors,
+    }
+    return render(request, "core/vendor-list.html", context)
+
 def product_detail_view(request, pid):
     product = Product.objects.get(pid=pid)
     # product = get_object_or_404(Product, pid=pid)
