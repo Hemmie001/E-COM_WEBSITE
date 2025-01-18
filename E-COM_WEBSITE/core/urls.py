@@ -12,8 +12,14 @@ urlpatterns = [
     path("products/", product_list_view, name="product-list"),
     path("product/<pid>/", product_detail_view, name="product-detail"),
 
+    
+
+
     # Dahboard URL
     path("dashboard/", customer_dashboard, name="dashboard"),
+
+     # Include useradmin URLs
+    path("useradmin/", include("useradmin.urls", namespace="useradmin")), 
 
     # Category
     path("category/", category_list_view, name="category-list"),
