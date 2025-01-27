@@ -293,7 +293,7 @@ CKEDITOR_5_CONFIGS = {
             "fontBackgroundColor",
             # "mediaEmbed",
             "removeFormat",
-            "insertTable",
+            "insertTable"
             # "sourceEditing",
         ],
         "image": {
