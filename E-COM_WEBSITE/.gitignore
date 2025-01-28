@@ -1,0 +1,13 @@
+.env
+.env.local
+.env.*.local
+
+secrets.json
+keys.json
+
+config/
+configs/
+
+*.log
+
+*.tmp
