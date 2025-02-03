@@ -156,10 +156,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 JAZZMIN_SETTINGS = {
-    'site_header': "Desphixs Shop",
+    'site_header': "Mani_Shop",
     'site_brand': "You order, we deliver",
     'site_logo': "assets/imgs/theme/loading.gif",
-    'copyright': "desphixs-shop.com",
+    'copyright': "Mani_SHOP.com",
 }
 
 JAZZMIN_UI_TWEAKS = {
